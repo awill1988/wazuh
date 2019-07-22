@@ -464,4 +464,13 @@ https://www.gnu.org/licenses/gpl.html\n"
 #define FTELL_INT64 (long)
 #endif
 
+/* Verify-Agent-Conf target */
+#ifndef local_conf
+#define local_conf "local"
+#endif
+
+#ifndef remote_conf
+#define remote_conf "remote"
+#endif
+
 #endif /* __OS_HEADERS */

@@ -20,18 +20,20 @@
 
 /* Prototypes */
 static void helpmsg(void) __attribute__((noreturn));
-static int verify_agent_conf(const char * path);
+static int verify_agent_conf(const char * path, int target);
 
 
 static void helpmsg()
 {
     printf("\n%s %s: Verify agent.conf syntax for errors.\n", __ossec_name, ARGV0);
-    printf("Usage:  %s [-f <agent.conf file>]\n\n", ARGV0);
+    printf("Usage:  %s [-f <agent.conf file>] [-t <local/remote>]\n\n", ARGV0);
     printf("Available options:\n");
     printf("\t-h          This help message.\n");
     printf("\t-f          Full file name and path to config file to be tested.\n");
     printf("\t            If this option is not specified, this program will scan \n");
     printf("\t            all folders inside the 'shared' folder.\n");
+    printf("\t-t          Target to be tested : local (<ossec_config>) or remote (<agent_config>).\n");
+    printf("\t-t          Remote is the default target value.\n");
     exit(1);
 }
 
@@ -45,12 +47,15 @@ int main(int argc, char **argv)
     int c = 0;
     int error = 0;
 
+    /* By default target value will be set to remote */
+    int target = CAGENT_CONFIG;
+
     /* Set the name */
     OS_SetName(ARGV0);
 
     /* User arguments */
     if (argc > 1) {
-        while ((c = getopt(argc, argv, "Vdhf:")) != -1) {
+        while ((c = getopt(argc, argv, "Vdhf:t:")) != -1) {
             switch (c) {
                 case 'V':
                     print_version();
@@ -72,13 +77,33 @@ int main(int argc, char **argv)
                             error = 1;
                             break;
                         }
-
+                        /*
                         if (verify_agent_conf(optarg) < 0)
                             error = 1;
                         else
                             printf("%s: OK\n", ARGV0);
+                        */
                     }
                     break;
+                case 't':
+                    if(!optarg) {
+                        merror("-t needs an argument");
+                        helpmsg();
+                    }
+                    else {
+                        if(!strcmp(optarg, local_conf)) {
+                            target = CAGENT_CONFIG & (~CAGENT_CONFIG);
+                        }
+                        else if(!strcmp(optarg, remote_conf)) {
+                            target = CAGENT_CONFIG;
+                        }
+                        else {
+                            merror("[%s] is not a valid value.\n", optarg);
+                            helpmsg();
+                            error = 1;
+                            break;
+                        }
+                    }
                 default:
                     helpmsg();
                     break;
@@ -142,7 +167,6 @@ int main(int argc, char **argv)
 }
 
 int verify_agent_conf(const char * path) {
-
     if (Test_Syscheck(path) < 0) {
         return -1;
     } else if (Test_Rootcheck(path) < 0) {
@@ -158,6 +182,7 @@ int verify_agent_conf(const char * path) {
     } else if (Test_Labels(path) < 0) {
         return -1;
     }
+    // active-response, socket
 
     return 0;
 }

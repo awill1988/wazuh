@@ -26,6 +26,7 @@ static void help_execd(void) __attribute__((noreturn));
 static void execd_shutdown(int sig) __attribute__((noreturn));
 static void ExecdStart(int q) __attribute__((noreturn));
 static int CheckManagerConfiguration(char ** output);
+static int CheckAgentConfiguration(char ** output, char * path_cfgfile);
 
 /* Global variables */
 static OSList *timeout_list;
@@ -56,7 +57,7 @@ static void execd_shutdown(int sig)
 {
     /* Remove pending active responses */
     minfo(EXEC_SHUTDOWN);
- 
+
     timeout_node = timeout_list ? OSList_GetFirstNode(timeout_list) : NULL;
     while (timeout_node) {
         timeout_data *list_entry;
@@ -423,6 +424,60 @@ static void ExecdStart(int q)
             os_free(output);
             continue;
         }
+        else if(strstr(name, "check-agent-configuration")) {
+            char tmp_path[OS_SIZE_1024] = {0,};
+            sscanf(name, "%*s%s", tmp_path);
+            tmp_path[OS_SIZE_1024 - 1] = '\0';
+
+            char *path = strdup(DEFAULTDIR);
+            wm_strcat(&path, tmp_path);
+
+            char *output = NULL;
+            cJSON *result_obj = cJSON_CreateObject();
+
+            if(CheckAgentConfiguration(&output, path)) {
+                char error_msg[OS_SIZE_4096 - 27] = {0};
+                snprintf(error_msg, OS_SIZE_4096 - 27, "%s", output);
+
+                cJSON_AddNumberToObject(result_obj, "error", 1);
+                cJSON_AddStringToObject(result_obj, "message", error_msg);
+                os_free(output);
+                output = cJSON_PrintUnformatted(result_obj);
+            } else {
+                cJSON_AddNumberToObject(result_obj, "error", 0);
+                cJSON_AddStringToObject(result_obj, "message", "ok");
+                os_free(output);
+                output = cJSON_PrintUnformatted(result_obj);
+            }
+
+            cJSON_Delete(result_obj);
+            mdebug1("Sending configuration check: %s", output);
+
+            int rc;
+            /* Start api socket */
+            int api_sock;
+            if ((api_sock = StartMQ(EXECQUEUEPATHAPI, WRITE)) < 0) {
+                merror(QUEUE_ERROR, EXECQUEUEPATHAPI, strerror(errno));
+                os_free(output);
+                continue;
+            }
+
+            if ((rc = OS_SendUnix(api_sock, output, 0)) < 0) {
+                /* Error on the socket */
+                if (rc == OS_SOCKTERR) {
+                    merror("socketerr (not available).");
+                    os_free(output);
+                    close(api_sock);
+                    continue;
+                }
+
+                /* Unable to send. Socket busy */
+                mdebug2("Socket busy, discarding message.");
+            }
+            close(api_sock);
+            os_free(output);
+            continue;
+        }
 
         /* Get the command to execute (valid name) */
         if(!strcmp(name, "restart-wazuh")) {
@@ -704,5 +759,58 @@ error:
     ret_val = 1;
     return ret_val;
 }
+
+static int CheckAgentConfiguration(char ** output, char * path_cfgfile) {
+    int ret_val = 0;
+    int i, result_code;
+    int timeout = 2000;
+    char command_in[PATH_MAX] = {0};
+    char *output_msg = NULL;
+    char *daemon = "bin/verify-agent-conf";
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
+    output_msg = NULL;
+    snprintf(command_in, PATH_MAX, "%s/%s -f %s -t %s", DEFAULTDIR, daemon, path_cfgfile, local_conf);
+
+    if (wm_exec(command_in, &output_msg, &result_code, timeout, NULL) < 0) {
+        if (result_code == 0x7F) {
+            mwarn("Path is invalid or file has insufficient permissions. %s", command_in);
+        } else {
+            mwarn("Error executing [%s]", command_in);
+        }
+
+        os_free(output_msg);
+        goto error;
+    }
+
+    if (output_msg && *output_msg) {
+        // Remove last newline
+        size_t lastchar = strlen(output_msg) - 1;
+        output_msg[lastchar] = output_msg[lastchar] == '\n' ? '\0' : output_msg[lastchar];
+
+        wm_strcat(output, output_msg, ' ');
+    }
+
+    os_free(output_msg);
+
+    if(result_code) {
+        ret_val = result_code;
+    }
+
+    gettimeofday(&end, NULL);
+
+    double elapsed = (end.tv_usec - start.tv_usec) / 1000.0;
+    mdebug1("Elapsed configuration check time: %0.3f milliseconds", elapsed);
+
+    return ret_val;
+
+error:
+
+    ret_val = 1;
+    return ret_val;
+}
+
 
 #endif /* !WIN32 */
