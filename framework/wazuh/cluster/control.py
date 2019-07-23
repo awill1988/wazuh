@@ -2,17 +2,24 @@
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 from wazuh.cluster import local_client
+from wazuh.utils import filter_array_by_query
 from wazuh import common
 import json
 
 
-async def get_nodes(filter_node=None, offset=0, limit=common.database_limit, sort=None, search=None, select=None, filter_type='all'):
+async def get_nodes(filter_node=None, offset=0, limit=common.database_limit, sort=None, search=None, select=None, filters={}, q=''):
+    # set default value to 'filter_type' parameter
+    filter_type = filters['type'] if 'type' in filters else 'all'
+
     arguments = {'filter_node': filter_node, 'offset': offset, 'limit': limit, 'sort': sort, 'search': search,
                  'select': select, 'filter_type': filter_type}
     result = json.loads(await local_client.execute(command=b'get_nodes', data=json.dumps(arguments).encode(),
                                                    wait_for_complete=False))
     if 'error' in result and result['error'] > 0:
         raise Exception(result['message'])
+
+    if q:
+        result = filter_array_by_query(q, result)
 
     return result
 
