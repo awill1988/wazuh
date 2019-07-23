@@ -200,7 +200,7 @@ static void wm_sys_setup(wm_sys_t *_sys) {
     }
 
     // Cleanup exiting
-    atexit(wm_sys_cleanup);
+    //atexit(wm_sys_cleanup);
 
     #endif
 }

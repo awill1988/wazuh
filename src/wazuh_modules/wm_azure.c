@@ -440,7 +440,7 @@ void wm_azure_setup(wm_azure_t *_azure_config) {
 
     // Cleanup exiting
 
-    atexit(wm_azure_cleanup);
+    //atexit(wm_azure_cleanup);
 }
 
 // Check configuration

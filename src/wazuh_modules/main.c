@@ -168,7 +168,7 @@ void wm_setup()
 
     // Signal management
 
-    atexit(wm_cleanup);
+    //atexit(wm_cleanup);
     sigaction(SIGTERM, &action, NULL);
 
     if (flag_foreground) {

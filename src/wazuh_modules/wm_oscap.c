@@ -129,7 +129,7 @@ void wm_oscap_setup(wm_oscap *_oscap) {
 
     // Cleanup exiting
 
-    atexit(wm_oscap_cleanup);
+    //atexit(wm_oscap_cleanup);
 }
 
 // Cleanup function, doesn't overwrite wm_cleanup

@@ -125,7 +125,7 @@ void wm_docker_setup(wm_docker_t *_docker_conf) {
 
     // Cleanup exiting
 
-    atexit(wm_docker_cleanup);
+    //atexit(wm_docker_cleanup);
 }
 
 

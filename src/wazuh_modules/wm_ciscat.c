@@ -344,7 +344,7 @@ void wm_ciscat_setup(wm_ciscat *_ciscat) {
 
     // Cleanup exiting
 
-    atexit(wm_ciscat_cleanup);
+    //atexit(wm_ciscat_cleanup);
 #endif
 
 }

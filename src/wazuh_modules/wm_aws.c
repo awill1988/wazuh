@@ -278,7 +278,7 @@ void wm_aws_setup(wm_aws *_aws_config) {
 
     // Cleanup exiting
 
-    atexit(wm_aws_cleanup);
+    //atexit(wm_aws_cleanup);
 }
 
 
